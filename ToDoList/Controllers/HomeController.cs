@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,23 +14,36 @@ namespace ToDoList.Controllers
 
         public IActionResult Index(string id)
         {
-            // load current filters and data needed for filter drop downs in ViewBag
             var filters = new Filters(id);
-            ViewBag.Filters = filters;
-            ViewBag.Categories = context.Categories.ToList();
-            ViewBag.Statuses = context.Statuses.ToList();
-            ViewBag.DueFilters = Filters.DueFilterValues;
 
-            // get ToDo objects from database based on current filters
+            var viewModel = new ToDoViewModel
+            {
+                Filters = filters,
+                Categories = context.Categories.ToList(),
+                Statuses = context.Statuses.ToList(),
+                DueFilters = Filters.DueFilterValues,
+                Tasks = GetFilteredTasks(filters)
+            };
+
+            return View(viewModel);
+        }
+
+        private List<ToDo> GetFilteredTasks(Filters filters)
+        {
             IQueryable<ToDo> query = context.ToDos
-                .Include(t => t.Category).Include(t => t.Status);
-            if (filters.HasCategory) {
+                .Include(t => t.Category)
+                .Include(t => t.Status);
+
+            if (filters.HasCategory)
+            {
                 query = query.Where(t => t.CategoryId == filters.CategoryId);
             }
-            if (filters.HasStatus) {
+            if (filters.HasStatus)
+            {
                 query = query.Where(t => t.StatusId == filters.StatusId);
             }
-            if (filters.HasDue) {
+            if (filters.HasDue)
+            {
                 var today = DateTime.Today;
                 if (filters.IsPast)
                     query = query.Where(t => t.DueDate < today);
@@ -38,8 +52,8 @@ namespace ToDoList.Controllers
                 else if (filters.IsToday)
                     query = query.Where(t => t.DueDate == today);
             }
-            var tasks = query.OrderBy(t => t.DueDate).ToList();
-            return View(tasks);
+
+            return query.OrderBy(t => t.DueDate).ToList();
         }
 
         public IActionResult Add()
@@ -74,12 +88,14 @@ namespace ToDoList.Controllers
         }
 
         [HttpPost]
-        public IActionResult Edit([FromRoute]string id, ToDo selected)
+        public IActionResult Edit([FromRoute] string id, ToDo selected)
         {
-            if (selected.StatusId == null) {
+            if (selected.StatusId == null)
+            {
                 context.ToDos.Remove(selected);
             }
-            else {
+            else
+            {
                 string newStatusId = selected.StatusId;
                 selected = context.ToDos.Find(selected.Id);
                 selected.StatusId = newStatusId;
